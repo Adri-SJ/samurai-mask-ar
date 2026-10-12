@@ -2,6 +2,39 @@
   const $ = (id) => document.getElementById(id);
   let sceneBuilt = false;
 
+  if (window.AFRAME && !AFRAME.components["fit-gltf"]) {
+    AFRAME.registerComponent("fit-gltf", {
+      schema: { size: { type: "number", default: 1 } },
+
+      init() {
+        this.el.addEventListener("model-loaded", () => {
+          const mesh = this.el.getObject3D("mesh");
+          if (!mesh || !window.THREE) return;
+
+          mesh.updateMatrixWorld(true);
+
+          const box = new THREE.Box3().setFromObject(mesh);
+          const center = new THREE.Vector3();
+          const size = new THREE.Vector3();
+
+          box.getCenter(center);
+          box.getSize(size);
+
+          mesh.position.x -= center.x;
+          mesh.position.y -= center.y;
+          mesh.position.z -= center.z;
+
+          const longest = Math.max(size.x, size.y, size.z);
+
+          if (longest > 0) {
+            const scaleFactor = this.data.size / longest;
+            mesh.scale.multiplyScalar(scaleFactor);
+          }
+        });
+      }
+    });
+  }
+
   function buildScene() {
     if (sceneBuilt) return;
     sceneBuilt = true;
@@ -17,66 +50,46 @@
         vr-mode-ui="enabled:false"
         device-orientation-permission-ui="enabled:false">
 
+        <a-assets>
+          <a-asset-item id="kabuto-model" src="./assets/models/kabuto.glb"></a-asset-item>
+          <a-asset-item id="menpo-model" src="./assets/models/menpo.glb"></a-asset-item>
+        </a-assets>
+
         <a-camera active="false" position="0 0 0"></a-camera>
 
         <a-light type="ambient" intensity="1.35"></a-light>
         <a-light type="directional" position="1 2 2" intensity="1.2"></a-light>
 
-        <!--
-          Placeholder visual.
-          Cuando tengamos los GLB del kabuto y del menpō, se reemplazan estas piezas
-          manteniendo los mismos face anchors.
-        -->
-
         <a-entity id="helmet-anchor" mindar-face-target="anchorIndex: 10">
-          <a-sphere
-            id="helmet-placeholder"
-            position="0 .42 -.08"
-            scale=".78 .44 .72"
-            color="#181b20"
-            metalness=".65"
-            roughness=".34">
-          </a-sphere>
-
-          <a-box
-            position="0 .56 .02"
-            scale=".72 .11 .08"
-            color="#b72b2b"
-            metalness=".55">
-          </a-box>
-
-          <a-cone
-            position="-.42 .55 .01"
-            rotation="0 0 30"
-            radius-bottom=".055"
-            radius-top=".018"
-            height=".5"
-            color="#d5aa57">
-          </a-cone>
-
-          <a-cone
-            position=".42 .55 .01"
-            rotation="0 0 -30"
-            radius-bottom=".055"
-            radius-top=".018"
-            height=".5"
-            color="#d5aa57">
-          </a-cone>
+          <a-gltf-model
+            id="kabuto"
+            src="#kabuto-model"
+            fit-gltf="size: 1.15"
+            position="0 .55 -.12"
+            rotation="0 0 0"
+            scale="1 1 1">
+          </a-gltf-model>
         </a-entity>
 
         <a-entity id="menpo-anchor" mindar-face-target="anchorIndex: 1">
-          <a-box
-            id="menpo-placeholder"
-            position="0 -.12 .16"
-            scale=".52 .23 .12"
-            color="#252a31"
-            metalness=".72"
-            roughness=".28">
-          </a-box>
+          <a-gltf-model
+            id="menpo"
+            src="#menpo-model"
+            fit-gltf="size: .62"
+            position="0 -.10 .16"
+            rotation="0 0 0"
+            scale="1 1 1">
+          </a-gltf-model>
         </a-entity>
       </a-scene>`;
 
     const scene = root.querySelector("a-scene");
+
+    root.querySelectorAll("a-gltf-model").forEach((model) => {
+      model.addEventListener("model-error", (event) => {
+        console.error("Error cargando modelo:", model.getAttribute("src"), event.detail);
+      });
+    });
 
     scene.addEventListener("targetFound", () => {
       document.body.classList.add("tracking");
