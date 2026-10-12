@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-  <meta name="theme-color" content="#08090c" />
+  <meta name="theme-color" content="#16130f" />
   <title>Samurai Mask AR</title>
 
   <link rel="stylesheet" href="./css/styles.css" />
@@ -13,50 +13,87 @@
 </head>
 <body>
   <main id="app">
-    <section id="intro" class="screen">
-      <div class="card">
-        <p class="eyebrow">SAMURAI MASK AR</p>
-        <h1>KABUTO<br>INTERACTIVO</h1>
-        <p>
-          Activa la cámara frontal y coloca tu rostro dentro del encuadre.
-          El casco seguirá el movimiento de tu cabeza.
+    <section id="intro" class="intro-screen">
+      <div class="sun"></div>
+
+      <div class="intro-content">
+        <div class="mon">侍</div>
+
+        <p class="kicker">REALIDAD AUMENTADA · EXPERIENCIA FACIAL</p>
+
+        <h1>
+          <span>EL ROSTRO DEL</span>
+          SAMURÁI
+        </h1>
+
+        <div class="divider"><span></span><b>◆</b><span></span></div>
+
+        <p class="description">
+          Porta un kabuto y un menpō tradicionales que seguirán cada movimiento
+          de tu rostro.
         </p>
 
-        <div class="features">
-          <span>👹 Kabuto + Menpō</span>
-          <span>👁 Parpadeo</span>
-          <span>🗣 Boca</span>
+        <button id="start-camera" class="start-button">
+          <span>Entrar a la experiencia</span>
+          <b>→</b>
+        </button>
+
+        <div class="instructions">
+          <span>01 · Mira al frente</span>
+          <span>02 · Centra tu rostro</span>
+          <span>03 · Muévete lentamente</span>
         </div>
 
-        <button id="start-camera" class="primary">Activar cámara</button>
-        <p class="tiny">La cámara se usa únicamente durante la experiencia.</p>
+        <p class="privacy">La cámara se utiliza únicamente durante la experiencia.</p>
       </div>
     </section>
 
     <section id="ar-shell" class="ar-shell hidden">
       <div id="scene-root"></div>
 
-      <header class="hud">
-        <div>
-          <span class="label">ESTADO</span>
-          <strong id="tracking-state">BUSCANDO ROSTRO</strong>
+      <div class="ar-top">
+        <div class="ar-emblem">侍</div>
+        <div class="ar-title">
+          <small>SAMURAI MASK AR</small>
+          <strong id="tracking-state">Buscando rostro…</strong>
         </div>
-        <div class="hud__right">
-          <span class="label">MODO</span>
-          <strong>SAMURÁI</strong>
-        </div>
-      </header>
-
-      <div id="guide" class="guide">
-        <div class="face-outline"></div>
-        <strong>Centra tu rostro</strong>
-        <span>Acércate un poco y mira al frente.</span>
       </div>
 
-      <div id="gesture-status" class="gesture-status">
-        <span id="mouth-state">BOCA: esperando</span>
-        <span id="blink-state">OJOS: esperando</span>
-        <span id="brow-state">CEJAS: esperando</span>
+      <div id="guide" class="guide">
+        <div class="face-frame">
+          <i class="corner c1"></i>
+          <i class="corner c2"></i>
+          <i class="corner c3"></i>
+          <i class="corner c4"></i>
+        </div>
+        <strong>Coloca tu rostro aquí</strong>
+        <span>Procura tener buena iluminación</span>
+      </div>
+
+      <div class="ar-bottom">
+        <div class="gesture-chip">
+          <span class="gesture-icon">口</span>
+          <div>
+            <small>GESTO</small>
+            <strong id="mouth-state">Boca</strong>
+          </div>
+        </div>
+
+        <div class="gesture-chip">
+          <span class="gesture-icon">目</span>
+          <div>
+            <small>GESTO</small>
+            <strong id="blink-state">Ojos</strong>
+          </div>
+        </div>
+
+        <div class="gesture-chip">
+          <span class="gesture-icon">眉</span>
+          <div>
+            <small>GESTO</small>
+            <strong id="brow-state">Cejas</strong>
+          </div>
+        </div>
       </div>
     </section>
   </main>
