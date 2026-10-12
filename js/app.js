@@ -42,7 +42,7 @@
         <a-light type="directional" position="-1 1 1" intensity=".8"></a-light>
 
         <!-- Máscara completa construida con geometría ligera -->
-        <a-entity id="samurai-mask" mindar-face-target="anchorIndex: 168" position="0 0 .12">
+        <a-entity id="samurai-mask" mindar-face-target="anchorIndex: 168" position="0 -.72 .12">
 
           <!-- Casco principal -->
           <a-sphere
