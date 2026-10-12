@@ -51,8 +51,8 @@
         device-orientation-permission-ui="enabled:false">
 
         <a-assets>
-          <a-asset-item id="kabuto-model" src="./assets/models/samurai_helmet.glb"></a-asset-item>
-          <a-asset-item id="menpo-model" src="./assets/models/menpo_-_samurai_mask.glb"></a-asset-item>
+          <a-asset-item id="kabuto-model" src="./assets/models/samurai_helmet.glb?v=2"></a-asset-item>
+          <a-asset-item id="menpo-model" src="./assets/models/menpo_-_samurai_mask.glb?v=2"></a-asset-item>
         </a-assets>
 
         <a-camera active="false" position="0 0 0"></a-camera>
