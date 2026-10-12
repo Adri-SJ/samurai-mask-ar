@@ -13,6 +13,65 @@
     brow: false
   };
 
+  let audioCtx = null;
+
+  function ensureAudio() {
+    if (!audioCtx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return null;
+      audioCtx = new AudioCtx();
+    }
+
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume().catch(() => {});
+    }
+
+    return audioCtx;
+  }
+
+  function tone(freq, duration = 0.08, type = "sine", volume = 0.035, endFreq = null) {
+    const ctx = ensureAudio();
+    if (!ctx) return;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+    if (endFreq) {
+      osc.frequency.exponentialRampToValueAtTime(
+        Math.max(1, endFreq),
+        ctx.currentTime + duration
+      );
+    }
+
+    gain.gain.setValueAtTime(volume, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(
+      0.0001,
+      ctx.currentTime + duration
+    );
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + duration);
+  }
+
+  function playMouthSound() {
+    tone(190, 0.11, "square", 0.045, 120);
+    setTimeout(() => tone(105, 0.08, "triangle", 0.025), 55);
+  }
+
+  function playBlinkSound() {
+    tone(880, 0.055, "sine", 0.026, 1180);
+  }
+
+  function playBrowSound() {
+    tone(420, 0.12, "triangle", 0.032, 760);
+  }
+
   const dist2D = (a, b) => {
     const dx = a.x - b.x;
     const dy = a.y - b.y;
@@ -23,16 +82,18 @@
     if (gestureState.mouth === active) return;
     gestureState.mouth = active;
 
+    if (active) playMouthSound();
+
     const jaw = $("jaw");
     const fangLeft = $("fang-left");
     const fangRight = $("fang-right");
 
     if (jaw) {
       jaw.setAttribute("animation__jaw", active
-        ? "property: position; to: 0 -.39 .05; dur: 150; easing: easeOutQuad"
-        : "property: position; to: 0 -.30 .07; dur: 180; easing: easeOutQuad");
+        ? "property: position; to: 0 -.33 .055; dur: 150; easing: easeOutQuad"
+        : "property: position; to: 0 -.235 .06; dur: 180; easing: easeOutQuad");
       jaw.setAttribute("animation__tilt", active
-        ? "property: rotation; to: 10 0 0; dur: 150; easing: easeOutQuad"
+        ? "property: rotation; to: 8 0 0; dur: 150; easing: easeOutQuad"
         : "property: rotation; to: 0 0 0; dur: 180; easing: easeOutQuad");
     }
 
@@ -49,6 +110,8 @@
   function animateBlink(active) {
     if (gestureState.blink === active) return;
     gestureState.blink = active;
+
+    if (active) playBlinkSound();
 
     ["eye-left-frame", "eye-right-frame"].forEach((id) => {
       const eye = $(id);
@@ -70,13 +133,15 @@
     if (gestureState.brow === active) return;
     gestureState.brow = active;
 
+    if (active) playBrowSound();
+
     const crest = $("crest");
     const crestGlow = $("crest-glow");
 
     if (crest) {
       crest.setAttribute("animation__rise", active
-        ? "property: position; to: 0 .47 .02; dur: 180; easing: easeOutBack"
-        : "property: position; to: 0 .38 .02; dur: 220; easing: easeOutQuad");
+        ? "property: position; to: 0 .42 .02; dur: 180; easing: easeOutBack"
+        : "property: position; to: 0 .35 .02; dur: 220; easing: easeOutQuad");
       crest.setAttribute("animation__scale", active
         ? "property: scale; to: 1.18 1.18 1.18; dur: 180; easing: easeOutBack"
         : "property: scale; to: 1 1 1; dur: 220; easing: easeOutQuad");
@@ -200,10 +265,10 @@
           position="0 -.06 .20"
           scale="1.13 1.13 1.13">
 
-          <a-entity id="crest" position="0 .38 .02">
+          <a-entity id="crest" position="0 .35 .02">
             <a-circle
               id="crest-glow"
-              radius=".105"
+              radius=".085"
               color="#111111"
               material="emissive:#9d1d18; emissiveIntensity:.45; metalness:.8; roughness:.24">
             </a-circle>
@@ -227,7 +292,7 @@
           </a-entity>
 
           <a-box
-            position="-.22 .30 .00"
+            position="-.19 .285 .00"
             rotation="0 0 -16"
             width=".34"
             height=".105"
@@ -237,7 +302,7 @@
           </a-box>
 
           <a-box
-            position=".22 .30 .00"
+            position=".19 .285 .00"
             rotation="0 0 16"
             width=".34"
             height=".105"
@@ -248,22 +313,22 @@
 
           <a-ring
             id="eye-left-frame"
-            position="-.205 .13 .035"
+            position="-.19 .105 .035"
             rotation="0 0 -7"
-            radius-inner=".083"
-            radius-outer=".11"
-            scale="1.35 .72 1"
+            radius-inner=".068"
+            radius-outer=".092"
+            scale="1.32 .66 1"
             color="#711d1a"
             material="emissive:#b22a23; emissiveIntensity:.45; metalness:.75; roughness:.22">
           </a-ring>
 
           <a-ring
             id="eye-right-frame"
-            position=".205 .13 .035"
+            position=".19 .105 .035"
             rotation="0 0 7"
-            radius-inner=".083"
-            radius-outer=".11"
-            scale="1.35 .72 1"
+            radius-inner=".068"
+            radius-outer=".092"
+            scale="1.32 .66 1"
             color="#711d1a"
             material="emissive:#b22a23; emissiveIntensity:.45; metalness:.75; roughness:.22">
           </a-ring>
@@ -288,8 +353,8 @@
           </a-box>
 
           <a-box
-            position="-.285 -.075 .035"
-            rotation="0 0 -18"
+            position="-.265 -.035 .035"
+            rotation="0 0 -12"
             width=".31"
             height=".23"
             depth=".035"
@@ -298,8 +363,8 @@
           </a-box>
 
           <a-box
-            position=".285 -.075 .035"
-            rotation="0 0 18"
+            position=".265 -.035 .035"
+            rotation="0 0 12"
             width=".31"
             height=".23"
             depth=".035"
@@ -308,17 +373,17 @@
           </a-box>
 
           <a-box
-            position="-.43 -.04 .055"
+            position="-.39 -.025 .055"
             rotation="0 0 -25"
             width=".035"
-            height=".26"
+            height=".22"
             depth=".018"
             color="#c8a35b"
             material="metalness:.9; roughness:.17">
           </a-box>
 
           <a-box
-            position=".43 -.04 .055"
+            position=".39 -.025 .055"
             rotation="0 0 25"
             width=".035"
             height=".26"
@@ -327,7 +392,7 @@
             material="metalness:.9; roughness:.17">
           </a-box>
 
-          <a-entity id="jaw" position="0 -.30 .07">
+          <a-entity id="jaw" position="0 -.235 .06">
             <a-box
               width=".56"
               height=".16"
@@ -347,7 +412,7 @@
 
             <a-cone
               id="fang-left"
-              position="-.17 -.095 .035"
+              position="-.145 -.078 .035"
               rotation="180 0 0"
               radius-bottom=".025"
               radius-top="0"
@@ -357,7 +422,7 @@
 
             <a-cone
               id="fang-right"
-              position=".17 -.095 .035"
+              position=".145 -.078 .035"
               rotation="180 0 0"
               radius-bottom=".025"
               radius-top="0"
@@ -386,6 +451,7 @@
   }
 
   function start() {
+    ensureAudio();
     $("intro").classList.add("hidden");
     $("ar-shell").classList.remove("hidden");
     buildScene();
