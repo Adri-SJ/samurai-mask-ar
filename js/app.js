@@ -64,8 +64,8 @@
           <a-gltf-model
             id="kabuto"
             src="#kabuto-model"
-            fit-gltf="size: 1.15"
-            position="0 .55 -.12"
+            fit-gltf="size: 1.65"
+            position="0 .18 .02"
             rotation="0 0 0"
             scale="1 1 1">
           </a-gltf-model>
@@ -75,8 +75,8 @@
           <a-gltf-model
             id="menpo"
             src="#menpo-model"
-            fit-gltf="size: .62"
-            position="0 -.10 .16"
+            fit-gltf="size: .95"
+            position="0 -.02 .10"
             rotation="0 0 0"
             scale="1 1 1">
           </a-gltf-model>
