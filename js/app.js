@@ -46,7 +46,7 @@
             src="#kabuto-model"
             position="0 -.18 -.02"
             rotation="0 0 0"
-            scale=".032 .032 .032">
+            scale=".040 .040 .040">
           </a-gltf-model>
         </a-entity>
 
