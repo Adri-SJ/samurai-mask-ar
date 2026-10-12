@@ -44,9 +44,9 @@
           <a-gltf-model
             id="kabuto"
             src="#kabuto-model"
-            position="0 .23 .00"
+            position="0 -.10 .00"
             rotation="0 0 0"
-            scale=".025 .025 .025">
+            scale=".022 .022 .022">
           </a-gltf-model>
         </a-entity>
 
@@ -58,9 +58,9 @@
           <a-gltf-model
             id="menpo"
             src="#menpo-model"
-            position="0 .15 -.08"
+            position="0 -.22 -.02"
             rotation="0 0 0"
-            scale=".035 .035 .035">
+            scale=".032 .032 .032">
           </a-gltf-model>
         </a-entity>
       </a-scene>`;
