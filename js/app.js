@@ -44,9 +44,9 @@
           <a-gltf-model
             id="kabuto"
             src="#kabuto-model"
-            position="0 -.10 .00"
+            position="0 -.18 -.02"
             rotation="0 0 0"
-            scale=".022 .022 .022">
+            scale=".032 .032 .032">
           </a-gltf-model>
         </a-entity>
 
@@ -54,11 +54,11 @@
           El origen del Menpō viene desplazado dentro del archivo original,
           por eso se compensa con position además de su escala.
         -->
-        <a-entity id="menpo-anchor" mindar-face-target="anchorIndex: 1">
+        <a-entity id="menpo-anchor" mindar-face-target="anchorIndex: 168">
           <a-gltf-model
             id="menpo"
             src="#menpo-model"
-            position="0 -.22 -.02"
+            position="0 -.42 .08"
             rotation="0 0 0"
             scale=".032 .032 .032">
           </a-gltf-model>
