@@ -1,461 +1,433 @@
-(() => {
-  const $ = (id) => document.getElementById(id);
+import * as THREE from "three";
+import { MindARThree } from "mindar-face-three";
 
-  let sceneBuilt = false;
-  let faceMesh = null;
-  let gestureLoopStarted = false;
-  let processingFace = false;
-  let lastFaceProcess = 0;
+const $ = (id) => document.getElementById(id);
 
-  const gestureState = {
-    mouth: false,
-    blink: false,
-    brow: false
-  };
+let mindarThree = null;
+let faceMeshAR = null;
+let faceMeshDetector = null;
+let gestureLoopStarted = false;
+let processingFace = false;
+let lastFaceProcess = 0;
+let audioCtx = null;
 
-  let audioCtx = null;
+const gestureState = {
+  mouth: false,
+  blink: false,
+  brow: false,
+  tracking: false
+};
 
-  function ensureAudio() {
-    if (!audioCtx) {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return null;
-      audioCtx = new AudioCtx();
-    }
-
-    if (audioCtx.state === "suspended") {
-      audioCtx.resume().catch(() => {});
-    }
-
-    return audioCtx;
+function ensureAudio() {
+  if (!audioCtx) {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return null;
+    audioCtx = new AudioCtx();
   }
 
-  function tone(freq, duration = 0.08, type = "sine", volume = 0.035, endFreq = null) {
-    const ctx = ensureAudio();
-    if (!ctx) return;
+  if (audioCtx.state === "suspended") {
+    audioCtx.resume().catch(() => {});
+  }
 
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+  return audioCtx;
+}
 
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+function tone(freq, duration = 0.08, type = "sine", volume = 0.03, endFreq = null) {
+  const ctx = ensureAudio();
+  if (!ctx) return;
 
-    if (endFreq) {
-      osc.frequency.exponentialRampToValueAtTime(
-        Math.max(1, endFreq),
-        ctx.currentTime + duration
-      );
-    }
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
 
-    gain.gain.setValueAtTime(volume, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(
-      0.0001,
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+  if (endFreq) {
+    osc.frequency.exponentialRampToValueAtTime(
+      Math.max(1, endFreq),
       ctx.currentTime + duration
     );
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start();
-    osc.stop(ctx.currentTime + duration);
   }
 
-  function playMouthSound() {
-    tone(190, 0.11, "square", 0.045, 120);
-    setTimeout(() => tone(105, 0.08, "triangle", 0.025), 55);
+  gain.gain.setValueAtTime(volume, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  osc.start();
+  osc.stop(ctx.currentTime + duration);
+}
+
+function playMouthSound() {
+  tone(170, 0.13, "square", 0.04, 105);
+  setTimeout(() => tone(95, 0.08, "triangle", 0.02), 60);
+}
+
+function playBlinkSound() {
+  tone(920, 0.055, "sine", 0.024, 1240);
+}
+
+function playBrowSound() {
+  tone(390, 0.12, "triangle", 0.03, 760);
+}
+
+function dist2D(a, b) {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return Math.hypot(dx, dy);
+}
+
+function buildMaskTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1024;
+  canvas.height = 1024;
+
+  const ctx = canvas.getContext("2d");
+
+  // Base roja oscura semitransparente: cubre todo el FaceMesh.
+  const base = ctx.createRadialGradient(512, 470, 120, 512, 520, 560);
+  base.addColorStop(0, "rgba(112,20,18,0.48)");
+  base.addColorStop(0.62, "rgba(58,8,10,0.62)");
+  base.addColorStop(1, "rgba(12,8,8,0.78)");
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, 1024, 1024);
+
+  // Frente / placas superiores.
+  ctx.fillStyle = "rgba(12,12,12,0.78)";
+  ctx.beginPath();
+  ctx.moveTo(205, 250);
+  ctx.lineTo(470, 335);
+  ctx.lineTo(405, 405);
+  ctx.lineTo(170, 335);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(819, 250);
+  ctx.lineTo(554, 335);
+  ctx.lineTo(619, 405);
+  ctx.lineTo(854, 335);
+  ctx.closePath();
+  ctx.fill();
+
+  // Marco de ojos, dejando visible la cámara debajo.
+  ctx.strokeStyle = "rgba(189,43,34,0.92)";
+  ctx.lineWidth = 34;
+  ctx.beginPath();
+  ctx.ellipse(350, 445, 115, 70, -0.12, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.ellipse(674, 445, 115, 70, 0.12, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Puente central.
+  ctx.fillStyle = "rgba(24,24,24,0.82)";
+  ctx.beginPath();
+  ctx.moveTo(512, 430);
+  ctx.lineTo(570, 545);
+  ctx.lineTo(512, 605);
+  ctx.lineTo(454, 545);
+  ctx.closePath();
+  ctx.fill();
+
+  // Pómulos.
+  ctx.fillStyle = "rgba(47,13,14,0.88)";
+  ctx.beginPath();
+  ctx.moveTo(188, 520);
+  ctx.lineTo(435, 560);
+  ctx.lineTo(385, 745);
+  ctx.lineTo(165, 690);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(836, 520);
+  ctx.lineTo(589, 560);
+  ctx.lineTo(639, 745);
+  ctx.lineTo(859, 690);
+  ctx.closePath();
+  ctx.fill();
+
+  // Mandíbula.
+  ctx.fillStyle = "rgba(15,15,15,0.88)";
+  ctx.beginPath();
+  ctx.moveTo(305, 720);
+  ctx.lineTo(719, 720);
+  ctx.lineTo(660, 875);
+  ctx.lineTo(512, 930);
+  ctx.lineTo(364, 875);
+  ctx.closePath();
+  ctx.fill();
+
+  // Detalles dorados.
+  ctx.strokeStyle = "rgba(205,166,88,0.96)";
+  ctx.lineWidth = 18;
+
+  ctx.beginPath();
+  ctx.moveTo(200, 520);
+  ctx.lineTo(175, 690);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(824, 520);
+  ctx.lineTo(849, 690);
+  ctx.stroke();
+
+  // Emblema central.
+  ctx.strokeStyle = "rgba(205,166,88,0.98)";
+  ctx.lineWidth = 22;
+  ctx.beginPath();
+  ctx.arc(512, 270, 72, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(205,166,88,0.95)";
+  ctx.beginPath();
+  ctx.moveTo(512, 155);
+  ctx.lineTo(450, 270);
+  ctx.lineTo(574, 270);
+  ctx.closePath();
+  ctx.fill();
+
+  // Líneas de "circuito" discretas.
+  ctx.strokeStyle = "rgba(205,166,88,0.48)";
+  ctx.lineWidth = 8;
+
+  [
+    [260, 325, 330, 365],
+    [764, 325, 694, 365],
+    [255, 780, 350, 820],
+    [769, 780, 674, 820]
+  ].forEach(([x1, y1, x2, y2]) => {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  });
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function setTracking(active) {
+  if (gestureState.tracking === active) return;
+  gestureState.tracking = active;
+
+  document.body.classList.toggle("tracking", active);
+  $("tracking-state").textContent = active ? "Rostro detectado" : "Buscando rostro…";
+}
+
+function animateMouth(active) {
+  if (gestureState.mouth === active) return;
+  gestureState.mouth = active;
+
+  if (active) {
+    playMouthSound();
+    $("mouth-state").textContent = "Boca abierta";
+  } else {
+    $("mouth-state").textContent = "Boca";
+  }
+}
+
+function animateBlink(active) {
+  if (gestureState.blink === active) return;
+  gestureState.blink = active;
+
+  if (active) {
+    playBlinkSound();
+    $("blink-state").textContent = "Parpadeo";
+  } else {
+    $("blink-state").textContent = "Ojos";
+  }
+}
+
+function animateBrow(active) {
+  if (gestureState.brow === active) return;
+  gestureState.brow = active;
+
+  if (active) {
+    playBrowSound();
+    $("brow-state").textContent = "Cejas arriba";
+  } else {
+    $("brow-state").textContent = "Cejas";
+  }
+}
+
+function evaluateGestures(landmarks) {
+  if (!landmarks || landmarks.length < 468) {
+    setTracking(false);
+    return;
   }
 
-  function playBlinkSound() {
-    tone(880, 0.055, "sine", 0.026, 1180);
-  }
+  setTracking(true);
 
-  function playBrowSound() {
-    tone(420, 0.12, "triangle", 0.032, 760);
-  }
+  const mouthOpen = dist2D(landmarks[13], landmarks[14]);
+  const mouthWidth = dist2D(landmarks[78], landmarks[308]);
+  const mouthRatio = mouthWidth > 0 ? mouthOpen / mouthWidth : 0;
 
-  const dist2D = (a, b) => {
-    const dx = a.x - b.x;
-    const dy = a.y - b.y;
-    return Math.hypot(dx, dy);
-  };
+  const leftEyeOpen = dist2D(landmarks[159], landmarks[145]);
+  const leftEyeWidth = dist2D(landmarks[33], landmarks[133]);
+  const rightEyeOpen = dist2D(landmarks[386], landmarks[374]);
+  const rightEyeWidth = dist2D(landmarks[362], landmarks[263]);
 
-  function animateMouth(active) {
-    if (gestureState.mouth === active) return;
-    gestureState.mouth = active;
+  const leftEyeRatio = leftEyeWidth > 0 ? leftEyeOpen / leftEyeWidth : 1;
+  const rightEyeRatio = rightEyeWidth > 0 ? rightEyeOpen / rightEyeWidth : 1;
 
-    if (active) playMouthSound();
+  const leftBrowGap = dist2D(landmarks[105], landmarks[159]);
+  const rightBrowGap = dist2D(landmarks[334], landmarks[386]);
 
-    const jaw = $("jaw");
-    const fangLeft = $("fang-left");
-    const fangRight = $("fang-right");
+  const leftBrowRatio = leftEyeWidth > 0 ? leftBrowGap / leftEyeWidth : 0;
+  const rightBrowRatio = rightEyeWidth > 0 ? rightBrowGap / rightEyeWidth : 0;
+  const browRatio = (leftBrowRatio + rightBrowRatio) / 2;
 
-    if (jaw) {
-      jaw.setAttribute("animation__jaw", active
-        ? "property: position; to: 0 -.33 .055; dur: 150; easing: easeOutQuad"
-        : "property: position; to: 0 -.235 .06; dur: 180; easing: easeOutQuad");
-      jaw.setAttribute("animation__tilt", active
-        ? "property: rotation; to: 8 0 0; dur: 150; easing: easeOutQuad"
-        : "property: rotation; to: 0 0 0; dur: 180; easing: easeOutQuad");
-    }
+  animateMouth(mouthRatio > 0.18);
+  animateBlink(leftEyeRatio < 0.17 && rightEyeRatio < 0.17);
+  animateBrow(browRatio > 0.72);
+}
 
-    [fangLeft, fangRight].forEach((fang) => {
-      if (!fang) return;
-      fang.setAttribute("animation__fang", active
-        ? "property: scale; to: 1 1.35 1; dur: 140; easing: easeOutQuad"
-        : "property: scale; to: 1 1 1; dur: 160; easing: easeOutQuad");
-    });
+function initGestureDetection() {
+  if (!window.FaceMesh || faceMeshDetector) return;
 
-    $("mouth-state").textContent = active ? "Boca abierta" : "Boca";
-  }
+  faceMeshDetector = new FaceMesh({
+    locateFile: (file) =>
+      `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+  });
 
-  function animateBlink(active) {
-    if (gestureState.blink === active) return;
-    gestureState.blink = active;
+  faceMeshDetector.setOptions({
+    maxNumFaces: 1,
+    refineLandmarks: true,
+    minDetectionConfidence: 0.55,
+    minTrackingConfidence: 0.55
+  });
 
-    if (active) playBlinkSound();
+  faceMeshDetector.onResults((results) => {
+    evaluateGestures(results.multiFaceLandmarks?.[0]);
+  });
+}
 
-    ["eye-left-frame", "eye-right-frame"].forEach((id) => {
-      const eye = $(id);
-      if (!eye) return;
+function startGestureLoop() {
+  if (gestureLoopStarted) return;
+  gestureLoopStarted = true;
 
-      eye.setAttribute("animation__flash", active
-        ? "property: material.emissiveIntensity; to: 2.6; dur: 80; easing: linear"
-        : "property: material.emissiveIntensity; to: .45; dur: 220; easing: easeOutQuad");
+  initGestureDetection();
 
-      eye.setAttribute("animation__scale", active
-        ? "property: scale; to: 1.12 .72 1; dur: 80; easing: easeOutQuad"
-        : "property: scale; to: 1 1 1; dur: 180; easing: easeOutQuad");
-    });
+  const tick = async (time) => {
+    const video = document.querySelector("video");
 
-    $("blink-state").textContent = active ? "Parpadeo" : "Ojos";
-  }
+    if (
+      faceMeshDetector &&
+      video &&
+      video.readyState >= 2 &&
+      !processingFace &&
+      time - lastFaceProcess > 95
+    ) {
+      processingFace = true;
+      lastFaceProcess = time;
 
-  function animateBrow(active) {
-    if (gestureState.brow === active) return;
-    gestureState.brow = active;
-
-    if (active) playBrowSound();
-
-    const crest = $("crest");
-    const crestGlow = $("crest-glow");
-
-    if (crest) {
-      crest.setAttribute("animation__rise", active
-        ? "property: position; to: 0 .42 .02; dur: 180; easing: easeOutBack"
-        : "property: position; to: 0 .35 .02; dur: 220; easing: easeOutQuad");
-      crest.setAttribute("animation__scale", active
-        ? "property: scale; to: 1.18 1.18 1.18; dur: 180; easing: easeOutBack"
-        : "property: scale; to: 1 1 1; dur: 220; easing: easeOutQuad");
-    }
-
-    if (crestGlow) {
-      crestGlow.setAttribute("animation__glow", active
-        ? "property: material.emissiveIntensity; to: 2.2; dur: 160"
-        : "property: material.emissiveIntensity; to: .45; dur: 220");
-    }
-
-    $("brow-state").textContent = active ? "Cejas arriba" : "Cejas";
-  }
-
-  function evaluateGestures(landmarks) {
-    if (!landmarks || landmarks.length < 468) return;
-
-    const mouthOpen = dist2D(landmarks[13], landmarks[14]);
-    const mouthWidth = dist2D(landmarks[78], landmarks[308]);
-    const mouthRatio = mouthWidth > 0 ? mouthOpen / mouthWidth : 0;
-
-    const leftEyeOpen = dist2D(landmarks[159], landmarks[145]);
-    const leftEyeWidth = dist2D(landmarks[33], landmarks[133]);
-    const rightEyeOpen = dist2D(landmarks[386], landmarks[374]);
-    const rightEyeWidth = dist2D(landmarks[362], landmarks[263]);
-
-    const leftEyeRatio = leftEyeWidth > 0 ? leftEyeOpen / leftEyeWidth : 1;
-    const rightEyeRatio = rightEyeWidth > 0 ? rightEyeOpen / rightEyeWidth : 1;
-
-    const leftBrowGap = dist2D(landmarks[105], landmarks[159]);
-    const rightBrowGap = dist2D(landmarks[334], landmarks[386]);
-
-    const leftBrowRatio = leftEyeWidth > 0 ? leftBrowGap / leftEyeWidth : 0;
-    const rightBrowRatio = rightEyeWidth > 0 ? rightBrowGap / rightEyeWidth : 0;
-    const browRatio = (leftBrowRatio + rightBrowRatio) / 2;
-
-    animateMouth(mouthRatio > 0.18);
-    animateBlink(leftEyeRatio < 0.17 && rightEyeRatio < 0.17);
-    animateBrow(browRatio > 0.72);
-  }
-
-  function initGestureDetection() {
-    if (!window.FaceMesh || faceMesh) return;
-
-    faceMesh = new FaceMesh({
-      locateFile: (file) =>
-        `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
-    });
-
-    faceMesh.setOptions({
-      maxNumFaces: 1,
-      refineLandmarks: true,
-      minDetectionConfidence: 0.55,
-      minTrackingConfidence: 0.55
-    });
-
-    faceMesh.onResults((results) => {
-      const landmarks = results.multiFaceLandmarks?.[0];
-      if (landmarks) evaluateGestures(landmarks);
-    });
-  }
-
-  function startGestureLoop() {
-    if (gestureLoopStarted) return;
-    gestureLoopStarted = true;
-
-    initGestureDetection();
-
-    const tick = async (time) => {
-      const video = document.querySelector("video");
-
-      if (
-        faceMesh &&
-        video &&
-        video.readyState >= 2 &&
-        !processingFace &&
-        time - lastFaceProcess > 85
-      ) {
-        processingFace = true;
-        lastFaceProcess = time;
-
-        try {
-          await faceMesh.send({ image: video });
-        } catch (err) {
-          console.warn("No se pudo procesar gesto facial:", err);
-        } finally {
-          processingFace = false;
-        }
+      try {
+        await faceMeshDetector.send({ image: video });
+      } catch (err) {
+        console.warn("No se pudo procesar gesto facial:", err);
+      } finally {
+        processingFace = false;
       }
-
-      requestAnimationFrame(tick);
-    };
+    }
 
     requestAnimationFrame(tick);
-  }
+  };
 
-  function buildScene() {
-    if (sceneBuilt) return;
-    sceneBuilt = true;
+  requestAnimationFrame(tick);
+}
 
-    const root = $("scene-root");
+async function startAR() {
+  if (mindarThree) return;
 
-    root.innerHTML = `
-      <a-scene
-        mindar-face
-        embedded
-        color-space="sRGB"
-        renderer="colorManagement:true; physicallyCorrectLights:true; antialias:true"
-        vr-mode-ui="enabled:false"
-        device-orientation-permission-ui="enabled:false">
+  ensureAudio();
 
-        <a-camera active="false" position="0 0 0"></a-camera>
+  $("intro").classList.add("hidden");
+  $("ar-shell").classList.remove("hidden");
 
-        <a-light type="ambient" intensity="1.8"></a-light>
-        <a-light type="directional" position="1 2 2" intensity="1.2"></a-light>
-        <a-light type="directional" position="-1 1 1" intensity=".65"></a-light>
+  mindarThree = new MindARThree({
+    container: $("scene-root")
+  });
 
-        <a-entity
-          id="mask-root"
-          mindar-face-target="anchorIndex: 1"
-          position="0 -.06 .20"
-          scale="1.13 1.13 1.13">
+  const { renderer, scene, camera } = mindarThree;
 
-          <a-entity id="crest" position="0 .35 .02">
-            <a-circle
-              id="crest-glow"
-              radius=".085"
-              color="#111111"
-              material="emissive:#9d1d18; emissiveIntensity:.45; metalness:.8; roughness:.24">
-            </a-circle>
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x3a2020, 1.35));
 
-            <a-ring
-              radius-inner=".055"
-              radius-outer=".078"
-              position="0 0 .012"
-              color="#c8a35b"
-              material="metalness:.9; roughness:.18">
-            </a-ring>
+  const key = new THREE.DirectionalLight(0xffffff, 1.0);
+  key.position.set(0.5, 1, 1.5);
+  scene.add(key);
 
-            <a-triangle
-              vertex-a="0 .13 0"
-              vertex-b="-.07 -.015 0"
-              vertex-c=".07 -.015 0"
-              position="0 .055 .014"
-              color="#c8a35b"
-              material="metalness:.85; roughness:.2">
-            </a-triangle>
-          </a-entity>
+  // FaceMesh real: esta geometría se deforma con toda la cara.
+  faceMeshAR = mindarThree.addFaceMesh();
 
-          <a-box
-            position="-.19 .285 .00"
-            rotation="0 0 -16"
-            width=".34"
-            height=".105"
-            depth=".025"
-            color="#171717"
-            material="metalness:.8; roughness:.25">
-          </a-box>
+  faceMeshAR.material = new THREE.MeshStandardMaterial({
+    map: buildMaskTexture(),
+    transparent: true,
+    opacity: 0.88,
+    roughness: 0.42,
+    metalness: 0.3,
+    side: THREE.DoubleSide,
+    emissive: new THREE.Color(0x170606),
+    emissiveIntensity: 0.18,
+    depthWrite: false
+  });
 
-          <a-box
-            position=".19 .285 .00"
-            rotation="0 0 16"
-            width=".34"
-            height=".105"
-            depth=".025"
-            color="#171717"
-            material="metalness:.8; roughness:.25">
-          </a-box>
+  scene.add(faceMeshAR);
 
-          <a-ring
-            id="eye-left-frame"
-            position="-.19 .105 .035"
-            rotation="0 0 -7"
-            radius-inner=".068"
-            radius-outer=".092"
-            scale="1.32 .66 1"
-            color="#711d1a"
-            material="emissive:#b22a23; emissiveIntensity:.45; metalness:.75; roughness:.22">
-          </a-ring>
+  // Detalle ligero en la frente, también pegado a la cara.
+  const foreheadAnchor = mindarThree.addAnchor(10);
+  const crestGeometry = new THREE.RingGeometry(0.045, 0.062, 32);
+  const crestMaterial = new THREE.MeshStandardMaterial({
+    color: 0xc8a35b,
+    metalness: 0.9,
+    roughness: 0.18,
+    emissive: 0x3a2608,
+    emissiveIntensity: 0.35,
+    side: THREE.DoubleSide
+  });
 
-          <a-ring
-            id="eye-right-frame"
-            position=".19 .105 .035"
-            rotation="0 0 7"
-            radius-inner=".068"
-            radius-outer=".092"
-            scale="1.32 .66 1"
-            color="#711d1a"
-            material="emissive:#b22a23; emissiveIntensity:.45; metalness:.75; roughness:.22">
-          </a-ring>
+  const crest = new THREE.Mesh(crestGeometry, crestMaterial);
+  crest.position.set(0, 0.15, 0.12);
+  foreheadAnchor.group.add(crest);
 
-          <a-box
-            position="0 .015 .055"
-            rotation="0 0 45"
-            width=".115"
-            height=".115"
-            depth=".035"
-            color="#151515"
-            material="metalness:.8; roughness:.24">
-          </a-box>
+  await mindarThree.start();
 
-          <a-box
-            position="0 -.015 .074"
-            width=".055"
-            height=".20"
-            depth=".03"
-            color="#8a221c"
-            material="metalness:.7; roughness:.25">
-          </a-box>
+  renderer.setAnimationLoop((time) => {
+    if (faceMeshAR) {
+      const mat = faceMeshAR.material;
 
-          <a-box
-            position="-.265 -.035 .035"
-            rotation="0 0 -12"
-            width=".31"
-            height=".23"
-            depth=".035"
-            color="#321313"
-            material="metalness:.76; roughness:.28">
-          </a-box>
+      if (gestureState.mouth) {
+        mat.emissive.setHex(0x381006);
+        mat.emissiveIntensity = 0.58;
+      } else if (gestureState.blink) {
+        mat.emissive.setHex(0x5a0505);
+        mat.emissiveIntensity = 0.85;
+      } else if (gestureState.brow) {
+        mat.emissive.setHex(0x3a2608);
+        mat.emissiveIntensity = 0.7;
+      } else {
+        mat.emissive.setHex(0x170606);
+        mat.emissiveIntensity = 0.18;
+      }
+    }
 
-          <a-box
-            position=".265 -.035 .035"
-            rotation="0 0 12"
-            width=".31"
-            height=".23"
-            depth=".035"
-            color="#321313"
-            material="metalness:.76; roughness:.28">
-          </a-box>
+    crest.rotation.z += 0.006;
 
-          <a-box
-            position="-.39 -.025 .055"
-            rotation="0 0 -25"
-            width=".035"
-            height=".22"
-            depth=".018"
-            color="#c8a35b"
-            material="metalness:.9; roughness:.17">
-          </a-box>
+    if (gestureState.brow) {
+      crest.scale.lerp(new THREE.Vector3(1.28, 1.28, 1.28), 0.18);
+    } else {
+      crest.scale.lerp(new THREE.Vector3(1, 1, 1), 0.18);
+    }
 
-          <a-box
-            position=".39 -.025 .055"
-            rotation="0 0 25"
-            width=".035"
-            height=".26"
-            depth=".018"
-            color="#c8a35b"
-            material="metalness:.9; roughness:.17">
-          </a-box>
+    renderer.render(scene, camera);
+  });
 
-          <a-entity id="jaw" position="0 -.235 .06">
-            <a-box
-              width=".56"
-              height=".16"
-              depth=".04"
-              color="#171717"
-              material="metalness:.8; roughness:.25">
-            </a-box>
+  startGestureLoop();
+}
 
-            <a-box
-              position="0 .055 .025"
-              width=".34"
-              height=".035"
-              depth=".018"
-              color="#7f1f1b"
-              material="emissive:#8f231d; emissiveIntensity:.35; metalness:.6">
-            </a-box>
-
-            <a-cone
-              id="fang-left"
-              position="-.145 -.078 .035"
-              rotation="180 0 0"
-              radius-bottom=".025"
-              radius-top="0"
-              height=".105"
-              color="#d7c8a8">
-            </a-cone>
-
-            <a-cone
-              id="fang-right"
-              position=".145 -.078 .035"
-              rotation="180 0 0"
-              radius-bottom=".025"
-              radius-top="0"
-              height=".105"
-              color="#d7c8a8">
-            </a-cone>
-          </a-entity>
-        </a-entity>
-      </a-scene>`;
-
-    const scene = root.querySelector("a-scene");
-
-    scene.addEventListener("targetFound", () => {
-      document.body.classList.add("tracking");
-      $("tracking-state").textContent = "Rostro detectado";
-      startGestureLoop();
-    });
-
-    scene.addEventListener("targetLost", () => {
-      document.body.classList.remove("tracking");
-      $("tracking-state").textContent = "Buscando rostro…";
-      animateMouth(false);
-      animateBlink(false);
-      animateBrow(false);
-    });
-  }
-
-  function start() {
-    ensureAudio();
-    $("intro").classList.add("hidden");
-    $("ar-shell").classList.remove("hidden");
-    buildScene();
-  }
-
-  $("start-camera").addEventListener("click", start);
-})();
+$("start-camera").addEventListener("click", startAR);
