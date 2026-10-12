@@ -1,6 +1,177 @@
 (() => {
   const $ = (id) => document.getElementById(id);
+
   let sceneBuilt = false;
+  let faceMesh = null;
+  let gestureLoopStarted = false;
+  let processingFace = false;
+  let lastFaceProcess = 0;
+
+  const gestureState = {
+    mouth: false,
+    blink: false,
+    brow: false
+  };
+
+  const dist2D = (a, b) => {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    return Math.hypot(dx, dy);
+  };
+
+  function animateMouth(active) {
+    if (gestureState.mouth === active) return;
+    gestureState.mouth = active;
+
+    const jaw = $("jaw");
+    const fangLeft = $("fang-left");
+    const fangRight = $("fang-right");
+
+    if (jaw) {
+      jaw.setAttribute("animation__jaw", active
+        ? "property: position; to: 0 -.39 .05; dur: 150; easing: easeOutQuad"
+        : "property: position; to: 0 -.30 .07; dur: 180; easing: easeOutQuad");
+      jaw.setAttribute("animation__tilt", active
+        ? "property: rotation; to: 10 0 0; dur: 150; easing: easeOutQuad"
+        : "property: rotation; to: 0 0 0; dur: 180; easing: easeOutQuad");
+    }
+
+    [fangLeft, fangRight].forEach((fang) => {
+      if (!fang) return;
+      fang.setAttribute("animation__fang", active
+        ? "property: scale; to: 1 1.35 1; dur: 140; easing: easeOutQuad"
+        : "property: scale; to: 1 1 1; dur: 160; easing: easeOutQuad");
+    });
+
+    $("mouth-state").textContent = active ? "Boca abierta" : "Boca";
+  }
+
+  function animateBlink(active) {
+    if (gestureState.blink === active) return;
+    gestureState.blink = active;
+
+    ["eye-left-frame", "eye-right-frame"].forEach((id) => {
+      const eye = $(id);
+      if (!eye) return;
+
+      eye.setAttribute("animation__flash", active
+        ? "property: material.emissiveIntensity; to: 2.6; dur: 80; easing: linear"
+        : "property: material.emissiveIntensity; to: .45; dur: 220; easing: easeOutQuad");
+
+      eye.setAttribute("animation__scale", active
+        ? "property: scale; to: 1.12 .72 1; dur: 80; easing: easeOutQuad"
+        : "property: scale; to: 1 1 1; dur: 180; easing: easeOutQuad");
+    });
+
+    $("blink-state").textContent = active ? "Parpadeo" : "Ojos";
+  }
+
+  function animateBrow(active) {
+    if (gestureState.brow === active) return;
+    gestureState.brow = active;
+
+    const crest = $("crest");
+    const crestGlow = $("crest-glow");
+
+    if (crest) {
+      crest.setAttribute("animation__rise", active
+        ? "property: position; to: 0 .47 .02; dur: 180; easing: easeOutBack"
+        : "property: position; to: 0 .38 .02; dur: 220; easing: easeOutQuad");
+      crest.setAttribute("animation__scale", active
+        ? "property: scale; to: 1.18 1.18 1.18; dur: 180; easing: easeOutBack"
+        : "property: scale; to: 1 1 1; dur: 220; easing: easeOutQuad");
+    }
+
+    if (crestGlow) {
+      crestGlow.setAttribute("animation__glow", active
+        ? "property: material.emissiveIntensity; to: 2.2; dur: 160"
+        : "property: material.emissiveIntensity; to: .45; dur: 220");
+    }
+
+    $("brow-state").textContent = active ? "Cejas arriba" : "Cejas";
+  }
+
+  function evaluateGestures(landmarks) {
+    if (!landmarks || landmarks.length < 468) return;
+
+    const mouthOpen = dist2D(landmarks[13], landmarks[14]);
+    const mouthWidth = dist2D(landmarks[78], landmarks[308]);
+    const mouthRatio = mouthWidth > 0 ? mouthOpen / mouthWidth : 0;
+
+    const leftEyeOpen = dist2D(landmarks[159], landmarks[145]);
+    const leftEyeWidth = dist2D(landmarks[33], landmarks[133]);
+    const rightEyeOpen = dist2D(landmarks[386], landmarks[374]);
+    const rightEyeWidth = dist2D(landmarks[362], landmarks[263]);
+
+    const leftEyeRatio = leftEyeWidth > 0 ? leftEyeOpen / leftEyeWidth : 1;
+    const rightEyeRatio = rightEyeWidth > 0 ? rightEyeOpen / rightEyeWidth : 1;
+
+    const leftBrowGap = dist2D(landmarks[105], landmarks[159]);
+    const rightBrowGap = dist2D(landmarks[334], landmarks[386]);
+
+    const leftBrowRatio = leftEyeWidth > 0 ? leftBrowGap / leftEyeWidth : 0;
+    const rightBrowRatio = rightEyeWidth > 0 ? rightBrowGap / rightEyeWidth : 0;
+    const browRatio = (leftBrowRatio + rightBrowRatio) / 2;
+
+    animateMouth(mouthRatio > 0.18);
+    animateBlink(leftEyeRatio < 0.17 && rightEyeRatio < 0.17);
+    animateBrow(browRatio > 0.72);
+  }
+
+  function initGestureDetection() {
+    if (!window.FaceMesh || faceMesh) return;
+
+    faceMesh = new FaceMesh({
+      locateFile: (file) =>
+        `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+    });
+
+    faceMesh.setOptions({
+      maxNumFaces: 1,
+      refineLandmarks: true,
+      minDetectionConfidence: 0.55,
+      minTrackingConfidence: 0.55
+    });
+
+    faceMesh.onResults((results) => {
+      const landmarks = results.multiFaceLandmarks?.[0];
+      if (landmarks) evaluateGestures(landmarks);
+    });
+  }
+
+  function startGestureLoop() {
+    if (gestureLoopStarted) return;
+    gestureLoopStarted = true;
+
+    initGestureDetection();
+
+    const tick = async (time) => {
+      const video = document.querySelector("video");
+
+      if (
+        faceMesh &&
+        video &&
+        video.readyState >= 2 &&
+        !processingFace &&
+        time - lastFaceProcess > 85
+      ) {
+        processingFace = true;
+        lastFaceProcess = time;
+
+        try {
+          await faceMesh.send({ image: video });
+        } catch (err) {
+          console.warn("No se pudo procesar gesto facial:", err);
+        } finally {
+          processingFace = false;
+        }
+      }
+
+      requestAnimationFrame(tick);
+    };
+
+    requestAnimationFrame(tick);
+  }
 
   function buildScene() {
     if (sceneBuilt) return;
@@ -19,190 +190,178 @@
 
         <a-camera active="false" position="0 0 0"></a-camera>
 
-        <a-light type="ambient" intensity="1.9"></a-light>
-        <a-light type="directional" position="1 2 2" intensity="1.5"></a-light>
-        <a-light type="directional" position="-1 1 1" intensity=".8"></a-light>
+        <a-light type="ambient" intensity="1.8"></a-light>
+        <a-light type="directional" position="1 2 2" intensity="1.2"></a-light>
+        <a-light type="directional" position="-1 1 1" intensity=".65"></a-light>
 
-        <!-- CASCO / KABUTO -->
-        <a-entity id="kabuto-anchor" mindar-face-target="anchorIndex: 10" position="0 -.02 .08">
+        <a-entity
+          id="mask-root"
+          mindar-face-target="anchorIndex: 1"
+          position="0 -.06 .20"
+          scale="1.13 1.13 1.13">
 
-          <a-sphere
-            position="0 .18 -.10"
-            scale=".62 .34 .42"
-            theta-start="0"
-            theta-length="98"
-            color="#161616"
-            metalness=".8"
-            roughness=".28">
-          </a-sphere>
+          <a-entity id="crest" position="0 .38 .02">
+            <a-circle
+              id="crest-glow"
+              radius=".105"
+              color="#111111"
+              material="emissive:#9d1d18; emissiveIntensity:.45; metalness:.8; roughness:.24">
+            </a-circle>
+
+            <a-ring
+              radius-inner=".055"
+              radius-outer=".078"
+              position="0 0 .012"
+              color="#c8a35b"
+              material="metalness:.9; roughness:.18">
+            </a-ring>
+
+            <a-triangle
+              vertex-a="0 .13 0"
+              vertex-b="-.07 -.015 0"
+              vertex-c=".07 -.015 0"
+              position="0 .055 .014"
+              color="#c8a35b"
+              material="metalness:.85; roughness:.2">
+            </a-triangle>
+          </a-entity>
 
           <a-box
-            position="0 .02 .05"
-            width=".82"
-            height=".10"
-            depth=".08"
-            color="#7f1d1d"
-            metalness=".65"
-            roughness=".3">
+            position="-.22 .30 .00"
+            rotation="0 0 -16"
+            width=".34"
+            height=".105"
+            depth=".025"
+            color="#171717"
+            material="metalness:.8; roughness:.25">
           </a-box>
 
           <a-box
-            position="-.42 -.06 .03"
-            rotation="0 0 10"
-            width=".18"
-            height=".42"
-            depth=".08"
-            color="#5b1717"
-            metalness=".65"
-            roughness=".32">
+            position=".22 .30 .00"
+            rotation="0 0 16"
+            width=".34"
+            height=".105"
+            depth=".025"
+            color="#171717"
+            material="metalness:.8; roughness:.25">
+          </a-box>
+
+          <a-ring
+            id="eye-left-frame"
+            position="-.205 .13 .035"
+            rotation="0 0 -7"
+            radius-inner=".083"
+            radius-outer=".11"
+            scale="1.35 .72 1"
+            color="#711d1a"
+            material="emissive:#b22a23; emissiveIntensity:.45; metalness:.75; roughness:.22">
+          </a-ring>
+
+          <a-ring
+            id="eye-right-frame"
+            position=".205 .13 .035"
+            rotation="0 0 7"
+            radius-inner=".083"
+            radius-outer=".11"
+            scale="1.35 .72 1"
+            color="#711d1a"
+            material="emissive:#b22a23; emissiveIntensity:.45; metalness:.75; roughness:.22">
+          </a-ring>
+
+          <a-box
+            position="0 .015 .055"
+            rotation="0 0 45"
+            width=".115"
+            height=".115"
+            depth=".035"
+            color="#151515"
+            material="metalness:.8; roughness:.24">
           </a-box>
 
           <a-box
-            position=".42 -.06 .03"
-            rotation="0 0 -10"
-            width=".18"
-            height=".42"
-            depth=".08"
-            color="#5b1717"
-            metalness=".65"
-            roughness=".32">
-          </a-box>
-
-          <a-cone
-            position="-.18 .44 .02"
-            rotation="0 0 24"
-            radius-bottom=".04"
-            radius-top=".015"
-            height=".42"
-            color="#b58a42"
-            metalness=".9"
-            roughness=".18"
-            animation="property: rotation; from: 0 0 20; to: 0 0 28; dir: alternate; dur: 1300; loop: true; easing: easeInOutSine">
-          </a-cone>
-
-          <a-cone
-            position=".18 .44 .02"
-            rotation="0 0 -24"
-            radius-bottom=".04"
-            radius-top=".015"
-            height=".42"
-            color="#b58a42"
-            metalness=".9"
-            roughness=".18"
-            animation="property: rotation; from: 0 0 -20; to: 0 0 -28; dir: alternate; dur: 1300; loop: true; easing: easeInOutSine">
-          </a-cone>
-
-          <a-torus
-            position="0 .28 .10"
-            radius=".09"
-            radius-tubular=".015"
-            color="#c7a55d"
-            metalness=".95"
-            roughness=".15"
-            animation="property: rotation; to: 0 0 360; dur: 6500; loop: true; easing: linear">
-          </a-torus>
-        </a-entity>
-
-        <!-- MÁSCARA / MENPŌ -->
-        <a-entity id="menpo-anchor" mindar-face-target="anchorIndex: 1" position="0 -.02 .12" scale="1.05 1.05 1.05">
-
-          <a-box
-            id="visor"
-            position="0 .12 .10"
-            width=".62"
-            height=".11"
-            depth=".05"
-            color="#251111"
-            material="emissive:#d63a2f; emissiveIntensity:.65; opacity:.9; transparent:true"
-            animation="property: material.emissiveIntensity; from: .45; to: 1.2; dir: alternate; dur: 700; loop: true">
-          </a-box>
-
-          <a-sphere
-            position="-.16 .12 .14"
-            radius=".03"
-            color="#ff3b30"
-            material="emissive:#ff241c; emissiveIntensity:1.2"
-            animation="property: scale; from: .8 .8 .8; to: 1.25 1.25 1.25; dir: alternate; dur: 700; loop: true">
-          </a-sphere>
-
-          <a-sphere
-            position=".16 .12 .14"
-            radius=".03"
-            color="#ff3b30"
-            material="emissive:#ff241c; emissiveIntensity:1.2"
-            animation="property: scale; from: .8 .8 .8; to: 1.25 1.25 1.25; dir: alternate; dur: 700; loop: true">
-          </a-sphere>
-
-          <a-box
-            position="-.22 -.02 .10"
-            rotation="0 0 -12"
-            width=".22"
-            height=".24"
-            depth=".08"
-            color="#4a1515"
-            metalness=".7"
-            roughness=".3">
+            position="0 -.015 .074"
+            width=".055"
+            height=".20"
+            depth=".03"
+            color="#8a221c"
+            material="metalness:.7; roughness:.25">
           </a-box>
 
           <a-box
-            position=".22 -.02 .10"
-            rotation="0 0 12"
-            width=".22"
-            height=".24"
-            depth=".08"
-            color="#4a1515"
-            metalness=".7"
-            roughness=".3">
+            position="-.285 -.075 .035"
+            rotation="0 0 -18"
+            width=".31"
+            height=".23"
+            depth=".035"
+            color="#321313"
+            material="metalness:.76; roughness:.28">
           </a-box>
 
-          <a-cone
-            position="0 .00 .15"
-            rotation="90 0 0"
-            radius-bottom=".06"
-            radius-top=".02"
-            height=".16"
-            color="#222"
-            metalness=".75"
-            roughness=".25">
-          </a-cone>
+          <a-box
+            position=".285 -.075 .035"
+            rotation="0 0 18"
+            width=".31"
+            height=".23"
+            depth=".035"
+            color="#321313"
+            material="metalness:.76; roughness:.28">
+          </a-box>
 
-          <a-entity
-            id="jaw"
-            position="0 -.22 .10"
-            animation="property: rotation; from: 0 0 0; to: 10 0 0; dir: alternate; dur: 900; loop: true; easing: easeInOutSine">
+          <a-box
+            position="-.43 -.04 .055"
+            rotation="0 0 -25"
+            width=".035"
+            height=".26"
+            depth=".018"
+            color="#c8a35b"
+            material="metalness:.9; roughness:.17">
+          </a-box>
 
+          <a-box
+            position=".43 -.04 .055"
+            rotation="0 0 25"
+            width=".035"
+            height=".26"
+            depth=".018"
+            color="#c8a35b"
+            material="metalness:.9; roughness:.17">
+          </a-box>
+
+          <a-entity id="jaw" position="0 -.30 .07">
             <a-box
-              width=".48"
+              width=".56"
               height=".16"
-              depth=".10"
-              color="#4c1414"
-              metalness=".72"
-              roughness=".3">
+              depth=".04"
+              color="#171717"
+              material="metalness:.8; roughness:.25">
             </a-box>
 
             <a-box
-              position="0 .05 .06"
-              width=".28"
-              height=".04"
-              depth=".03"
-              color="#d9c9a5">
+              position="0 .055 .025"
+              width=".34"
+              height=".035"
+              depth=".018"
+              color="#7f1f1b"
+              material="emissive:#8f231d; emissiveIntensity:.35; metalness:.6">
             </a-box>
 
             <a-cone
-              position="-.14 -.06 .05"
+              id="fang-left"
+              position="-.17 -.095 .035"
               rotation="180 0 0"
               radius-bottom=".025"
               radius-top="0"
-              height=".09"
+              height=".105"
               color="#d7c8a8">
             </a-cone>
 
             <a-cone
-              position=".14 -.06 .05"
+              id="fang-right"
+              position=".17 -.095 .035"
               rotation="180 0 0"
               radius-bottom=".025"
               radius-top="0"
-              height=".09"
+              height=".105"
               color="#d7c8a8">
             </a-cone>
           </a-entity>
@@ -214,17 +373,15 @@
     scene.addEventListener("targetFound", () => {
       document.body.classList.add("tracking");
       $("tracking-state").textContent = "Rostro detectado";
-      $("mouth-state").textContent = "Mandíbula activa";
-      $("blink-state").textContent = "Visor activo";
-      $("brow-state").textContent = "Kabuto activo";
+      startGestureLoop();
     });
 
     scene.addEventListener("targetLost", () => {
       document.body.classList.remove("tracking");
       $("tracking-state").textContent = "Buscando rostro…";
-      $("mouth-state").textContent = "Boca";
-      $("blink-state").textContent = "Ojos";
-      $("brow-state").textContent = "Cejas";
+      animateMouth(false);
+      animateBlink(false);
+      animateBrow(false);
     });
   }
 
