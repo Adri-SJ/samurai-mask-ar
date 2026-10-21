@@ -84,121 +84,148 @@ function buildMaskTexture() {
   canvas.height = 1024;
 
   const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, 1024, 1024);
 
-  // Base roja oscura semitransparente: cubre todo el FaceMesh.
-  const base = ctx.createRadialGradient(512, 470, 120, 512, 520, 560);
-  base.addColorStop(0, "rgba(112,20,18,0.48)");
-  base.addColorStop(0.62, "rgba(58,8,10,0.62)");
-  base.addColorStop(1, "rgba(12,8,8,0.78)");
+  // Base: laca negra/rojo vino, más uniforme para que se lea como UNA máscara.
+  const base = ctx.createRadialGradient(512, 470, 90, 512, 520, 570);
+  base.addColorStop(0, "rgba(92,18,16,0.88)");
+  base.addColorStop(0.48, "rgba(51,10,11,0.90)");
+  base.addColorStop(1, "rgba(12,10,10,0.94)");
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, 1024, 1024);
 
-  // Frente / placas superiores.
-  ctx.fillStyle = "rgba(12,12,12,0.78)";
+  // Sombra perimetral para dar volumen sin usar geometría pesada.
+  const edge = ctx.createRadialGradient(512, 500, 250, 512, 520, 590);
+  edge.addColorStop(0, "rgba(0,0,0,0)");
+  edge.addColorStop(0.72, "rgba(0,0,0,0.10)");
+  edge.addColorStop(1, "rgba(0,0,0,0.68)");
+  ctx.fillStyle = edge;
+  ctx.fillRect(0, 0, 1024, 1024);
+
+  // Frente tipo kabuto / ceja superior continua.
+  ctx.fillStyle = "rgba(12,12,13,0.96)";
   ctx.beginPath();
-  ctx.moveTo(205, 250);
-  ctx.lineTo(470, 335);
-  ctx.lineTo(405, 405);
-  ctx.lineTo(170, 335);
+  ctx.moveTo(170, 245);
+  ctx.quadraticCurveTo(340, 175, 512, 235);
+  ctx.quadraticCurveTo(684, 175, 854, 245);
+  ctx.lineTo(810, 350);
+  ctx.quadraticCurveTo(650, 305, 512, 335);
+  ctx.quadraticCurveTo(374, 305, 214, 350);
   ctx.closePath();
   ctx.fill();
 
-  ctx.beginPath();
-  ctx.moveTo(819, 250);
-  ctx.lineTo(554, 335);
-  ctx.lineTo(619, 405);
-  ctx.lineTo(854, 335);
-  ctx.closePath();
-  ctx.fill();
-
-  // Marco de ojos, dejando visible la cámara debajo.
-  ctx.strokeStyle = "rgba(189,43,34,0.92)";
-  ctx.lineWidth = 34;
-  ctx.beginPath();
-  ctx.ellipse(350, 445, 115, 70, -0.12, 0, Math.PI * 2);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.ellipse(674, 445, 115, 70, 0.12, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // Puente central.
-  ctx.fillStyle = "rgba(24,24,24,0.82)";
-  ctx.beginPath();
-  ctx.moveTo(512, 430);
-  ctx.lineTo(570, 545);
-  ctx.lineTo(512, 605);
-  ctx.lineTo(454, 545);
-  ctx.closePath();
-  ctx.fill();
-
-  // Pómulos.
-  ctx.fillStyle = "rgba(47,13,14,0.88)";
-  ctx.beginPath();
-  ctx.moveTo(188, 520);
-  ctx.lineTo(435, 560);
-  ctx.lineTo(385, 745);
-  ctx.lineTo(165, 690);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.moveTo(836, 520);
-  ctx.lineTo(589, 560);
-  ctx.lineTo(639, 745);
-  ctx.lineTo(859, 690);
-  ctx.closePath();
-  ctx.fill();
-
-  // Mandíbula.
-  ctx.fillStyle = "rgba(15,15,15,0.88)";
-  ctx.beginPath();
-  ctx.moveTo(305, 720);
-  ctx.lineTo(719, 720);
-  ctx.lineTo(660, 875);
-  ctx.lineTo(512, 930);
-  ctx.lineTo(364, 875);
-  ctx.closePath();
-  ctx.fill();
-
-  // Detalles dorados.
-  ctx.strokeStyle = "rgba(205,166,88,0.96)";
+  // Lamas rojas bajo la frente.
+  ctx.strokeStyle = "rgba(139,32,27,0.95)";
   ctx.lineWidth = 18;
-
   ctx.beginPath();
-  ctx.moveTo(200, 520);
-  ctx.lineTo(175, 690);
+  ctx.moveTo(205, 340);
+  ctx.quadraticCurveTo(360, 300, 470, 342);
   ctx.stroke();
 
   ctx.beginPath();
-  ctx.moveTo(824, 520);
-  ctx.lineTo(849, 690);
+  ctx.moveTo(819, 340);
+  ctx.quadraticCurveTo(664, 300, 554, 342);
   ctx.stroke();
 
-  // Emblema central.
-  ctx.strokeStyle = "rgba(205,166,88,0.98)";
-  ctx.lineWidth = 22;
+  // Nariz / puente central tipo menpō.
+  ctx.fillStyle = "rgba(20,20,21,0.98)";
   ctx.beginPath();
-  ctx.arc(512, 270, 72, 0, Math.PI * 2);
-  ctx.stroke();
-
-  ctx.fillStyle = "rgba(205,166,88,0.95)";
-  ctx.beginPath();
-  ctx.moveTo(512, 155);
-  ctx.lineTo(450, 270);
-  ctx.lineTo(574, 270);
+  ctx.moveTo(512, 355);
+  ctx.lineTo(578, 535);
+  ctx.lineTo(512, 610);
+  ctx.lineTo(446, 535);
   ctx.closePath();
   ctx.fill();
 
-  // Líneas de "circuito" discretas.
-  ctx.strokeStyle = "rgba(205,166,88,0.48)";
-  ctx.lineWidth = 8;
+  // Pómulos curvos.
+  ctx.fillStyle = "rgba(43,12,13,0.97)";
+  ctx.beginPath();
+  ctx.moveTo(165, 500);
+  ctx.quadraticCurveTo(280, 455, 435, 520);
+  ctx.lineTo(395, 700);
+  ctx.quadraticCurveTo(285, 725, 175, 645);
+  ctx.closePath();
+  ctx.fill();
 
+  ctx.beginPath();
+  ctx.moveTo(859, 500);
+  ctx.quadraticCurveTo(744, 455, 589, 520);
+  ctx.lineTo(629, 700);
+  ctx.quadraticCurveTo(739, 725, 849, 645);
+  ctx.closePath();
+  ctx.fill();
+
+  // Mandíbula amplia y unificada.
+  ctx.fillStyle = "rgba(13,13,14,0.98)";
+  ctx.beginPath();
+  ctx.moveTo(230, 680);
+  ctx.quadraticCurveTo(340, 755, 512, 742);
+  ctx.quadraticCurveTo(684, 755, 794, 680);
+  ctx.lineTo(742, 865);
+  ctx.quadraticCurveTo(630, 955, 512, 970);
+  ctx.quadraticCurveTo(394, 955, 282, 865);
+  ctx.closePath();
+  ctx.fill();
+
+  // "Boca" estilizada del menpō.
+  ctx.fillStyle = "rgba(118,28,24,0.95)";
+  ctx.beginPath();
+  ctx.moveTo(365, 760);
+  ctx.quadraticCurveTo(512, 815, 659, 760);
+  ctx.lineTo(635, 815);
+  ctx.quadraticCurveTo(512, 855, 389, 815);
+  ctx.closePath();
+  ctx.fill();
+
+  // Colmillos / dientes.
+  ctx.fillStyle = "rgba(219,204,167,0.96)";
+  [[415, 787],[470, 803],[554, 803],[609, 787]].forEach(([x,y], i) => {
+    ctx.beginPath();
+    const dir = (i < 2) ? 1 : -1;
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + 20 * dir, y + 56);
+    ctx.lineTo(x - 17 * dir, y + 12);
+    ctx.closePath();
+    ctx.fill();
+  });
+
+  // Filetes dorados laterales.
+  ctx.strokeStyle = "rgba(202,162,83,0.95)";
+  ctx.lineWidth = 12;
+
+  ctx.beginPath();
+  ctx.moveTo(188, 475);
+  ctx.quadraticCurveTo(155, 590, 190, 705);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(836, 475);
+  ctx.quadraticCurveTo(869, 590, 834, 705);
+  ctx.stroke();
+
+  // Emblema frontal.
+  ctx.strokeStyle = "rgba(205,166,88,0.98)";
+  ctx.lineWidth = 24;
+  ctx.beginPath();
+  ctx.arc(512, 235, 64, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(205,166,88,0.98)";
+  ctx.beginPath();
+  ctx.moveTo(512, 120);
+  ctx.lineTo(452, 240);
+  ctx.lineTo(572, 240);
+  ctx.closePath();
+  ctx.fill();
+
+  // Marcas diagonales tipo armadura.
+  ctx.strokeStyle = "rgba(176,49,39,0.55)";
+  ctx.lineWidth = 9;
   [
-    [260, 325, 330, 365],
-    [764, 325, 694, 365],
-    [255, 780, 350, 820],
-    [769, 780, 674, 820]
+    [235, 575, 330, 540],
+    [250, 620, 345, 585],
+    [789, 575, 694, 540],
+    [774, 620, 679, 585]
   ].forEach(([x1, y1, x2, y2]) => {
     ctx.beginPath();
     ctx.moveTo(x1, y1);
@@ -206,12 +233,50 @@ function buildMaskTexture() {
     ctx.stroke();
   });
 
+  // OJOS: perforaciones reales para que se vean los ojos del usuario.
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-out";
+
+  ctx.beginPath();
+  ctx.ellipse(350, 445, 118, 66, -0.12, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.ellipse(674, 445, 118, 66, 0.12, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Pequeña abertura central de boca para que la animación sea más natural.
+  ctx.beginPath();
+  ctx.ellipse(512, 786, 118, 28, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+
+  // Bordes rojos alrededor de los ojos después del recorte.
+  ctx.strokeStyle = "rgba(187,43,34,0.98)";
+  ctx.lineWidth = 28;
+
+  ctx.beginPath();
+  ctx.ellipse(350, 445, 128, 76, -0.12, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.ellipse(674, 445, 128, 76, 0.12, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Highlight sutil para dar acabado lacado.
+  const gloss = ctx.createLinearGradient(0, 150, 0, 820);
+  gloss.addColorStop(0, "rgba(255,255,255,0.10)");
+  gloss.addColorStop(0.45, "rgba(255,255,255,0.015)");
+  gloss.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = gloss;
+  ctx.fillRect(120, 130, 784, 760);
+
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.needsUpdate = true;
   return texture;
 }
-
 function setTracking(active) {
   if (gestureState.tracking === active) return;
   gestureState.tracking = active;
@@ -368,7 +433,7 @@ async function startAR() {
   faceMeshAR.material = new THREE.MeshStandardMaterial({
     map: buildMaskTexture(),
     transparent: true,
-    opacity: 0.88,
+    opacity: 0.93,
     roughness: 0.42,
     metalness: 0.3,
     side: THREE.DoubleSide,
