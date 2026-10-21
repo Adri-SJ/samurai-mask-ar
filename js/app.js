@@ -530,7 +530,7 @@ async function startAR() {
   const foreheadAnchor = mindarThree.addAnchor(10);
 
   const kabutoGroup = new THREE.Group();
-  kabutoGroup.position.set(0, 0.17, 0.015);
+  kabutoGroup.position.set(0, 0.13, 0.01);
 
   const blackMetal = new THREE.MeshStandardMaterial({
     color: 0x151515,
@@ -562,28 +562,28 @@ async function startAR() {
     new THREE.SphereGeometry(0.23, 32, 24),
     blackMetal
   );
-  dome.scale.set(1.22, 0.76, 1.06);
-  dome.position.set(0, 0.11, -0.08);
+  dome.scale.set(1.55, 0.92, 1.18);
+  dome.position.set(0, 0.10, -0.09);
   kabutoGroup.add(dome);
 
   // Visera frontal.
   const brim = new THREE.Mesh(
-    new THREE.BoxGeometry(0.56, 0.055, 0.085),
+    new THREE.BoxGeometry(0.70, 0.065, 0.095),
     redLacquer
   );
-  brim.position.set(0, -0.015, 0.045);
+  brim.position.set(0, -0.02, 0.05);
   kabutoGroup.add(brim);
 
   // Protectores laterales.
-  const sideGeometry = new THREE.BoxGeometry(0.09, 0.22, 0.055);
+  const sideGeometry = new THREE.BoxGeometry(0.11, 0.27, 0.06);
 
   const sideLeft = new THREE.Mesh(sideGeometry, redLacquer);
-  sideLeft.position.set(-0.245, -0.035, 0.01);
+  sideLeft.position.set(-0.31, -0.045, 0.01);
   sideLeft.rotation.z = 0.24;
   kabutoGroup.add(sideLeft);
 
   const sideRight = new THREE.Mesh(sideGeometry, redLacquer);
-  sideRight.position.set(0.245, -0.035, 0.01);
+  sideRight.position.set(0.31, -0.045, 0.01);
   sideRight.rotation.z = -0.24;
   kabutoGroup.add(sideRight);
 
@@ -592,7 +592,7 @@ async function startAR() {
     new THREE.RingGeometry(0.045, 0.062, 32),
     goldMetal
   );
-  crestRing.position.set(0, 0.105, 0.145);
+  crestRing.position.set(0, 0.12, 0.165);
   kabutoGroup.add(crestRing);
 
   const crestShape = new THREE.Shape();
@@ -605,19 +605,19 @@ async function startAR() {
     new THREE.ShapeGeometry(crestShape),
     goldMetal
   );
-  crestTip.position.set(0, 0.155, 0.146);
+  crestTip.position.set(0, 0.19, 0.166);
   kabutoGroup.add(crestTip);
 
   // Cuernos sencillos para dar la silueta típica samurái.
-  const hornGeometry = new THREE.ConeGeometry(0.019, 0.17, 16);
+  const hornGeometry = new THREE.ConeGeometry(0.022, 0.22, 16);
 
   const hornLeft = new THREE.Mesh(hornGeometry, goldMetal);
-  hornLeft.position.set(-0.115, 0.265, 0.035);
+  hornLeft.position.set(-0.15, 0.31, 0.04);
   hornLeft.rotation.z = 0.48;
   kabutoGroup.add(hornLeft);
 
   const hornRight = new THREE.Mesh(hornGeometry, goldMetal);
-  hornRight.position.set(0.115, 0.265, 0.035);
+  hornRight.position.set(0.15, 0.31, 0.04);
   hornRight.rotation.z = -0.48;
   kabutoGroup.add(hornRight);
 
