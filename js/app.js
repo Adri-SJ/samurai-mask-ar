@@ -32,46 +32,128 @@ function ensureAudio() {
   return audioCtx;
 }
 
-function tone(freq, duration = 0.08, type = "sine", volume = 0.03, endFreq = null) {
+function tone(freq, duration = 0.08, type = "sine", volume = 0.03, endFreq = null, delay = 0) {
   const ctx = ensureAudio();
   if (!ctx) return;
 
+  const startAt = ctx.currentTime + delay;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
 
   osc.type = type;
-  osc.frequency.setValueAtTime(freq, ctx.currentTime);
+  osc.frequency.setValueAtTime(freq, startAt);
 
   if (endFreq) {
     osc.frequency.exponentialRampToValueAtTime(
       Math.max(1, endFreq),
-      ctx.currentTime + duration
+      startAt + duration
     );
   }
 
-  gain.gain.setValueAtTime(volume, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+  gain.gain.setValueAtTime(0.0001, startAt);
+  gain.gain.exponentialRampToValueAtTime(volume, startAt + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
 
   osc.connect(gain);
   gain.connect(ctx.destination);
 
-  osc.start();
-  osc.stop(ctx.currentTime + duration);
+  osc.start(startAt);
+  osc.stop(startAt + duration + 0.02);
+}
+
+function noiseBurst({
+  duration = 0.12,
+  volume = 0.03,
+  highpass = 400,
+  lowpass = 6000,
+  delay = 0
+} = {}) {
+  const ctx = ensureAudio();
+  if (!ctx) return;
+
+  const startAt = ctx.currentTime + delay;
+  const length = Math.max(1, Math.floor(ctx.sampleRate * duration));
+  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+
+  for (let i = 0; i < length; i++) {
+    const decay = 1 - i / length;
+    data[i] = (Math.random() * 2 - 1) * decay;
+  }
+
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+
+  const hp = ctx.createBiquadFilter();
+  hp.type = "highpass";
+  hp.frequency.value = highpass;
+
+  const lp = ctx.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = lowpass;
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(volume, startAt);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+
+  source.connect(hp);
+  hp.connect(lp);
+  lp.connect(gain);
+  gain.connect(ctx.destination);
+
+  source.start(startAt);
+  source.stop(startAt + duration + 0.02);
 }
 
 function playMouthSound() {
-  tone(170, 0.13, "square", 0.04, 105);
-  setTimeout(() => tone(95, 0.08, "triangle", 0.02), 60);
+  // Golpe mecánico + resonancia grave, como una máscara de metal abriéndose.
+  noiseBurst({
+    duration: 0.16,
+    volume: 0.035,
+    highpass: 700,
+    lowpass: 4200
+  });
+
+  tone(150, 0.18, "triangle", 0.04, 82);
+  tone(310, 0.08, "square", 0.018, 205, 0.015);
+  tone(78, 0.20, "sine", 0.035, 54, 0.025);
+
+  // Pequeño cierre metálico secundario.
+  noiseBurst({
+    duration: 0.08,
+    volume: 0.018,
+    highpass: 1800,
+    lowpass: 7000,
+    delay: 0.09
+  });
 }
 
 function playBlinkSound() {
-  tone(920, 0.055, "sine", 0.024, 1240);
+  // Flash energético corto, más limpio que un beep simple.
+  tone(760, 0.055, "sine", 0.022, 1280);
+  tone(1520, 0.035, "sine", 0.013, 980, 0.018);
+
+  noiseBurst({
+    duration: 0.045,
+    volume: 0.012,
+    highpass: 3200,
+    lowpass: 9000
+  });
 }
 
 function playBrowSound() {
-  tone(390, 0.12, "triangle", 0.03, 760);
-}
+  // Whoosh ascendente + brillo ceremonial.
+  noiseBurst({
+    duration: 0.22,
+    volume: 0.022,
+    highpass: 500,
+    lowpass: 4200
+  });
 
+  tone(260, 0.18, "triangle", 0.025, 620);
+  tone(520, 0.16, "sine", 0.018, 980, 0.035);
+  tone(1040, 0.11, "sine", 0.010, 1460, 0.07);
+}
 function dist2D(a, b) {
   const dx = a.x - b.x;
   const dy = a.y - b.y;
