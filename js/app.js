@@ -11,6 +11,38 @@ let processingFace = false;
 let lastFaceProcess = 0;
 let audioCtx = null;
 
+const gestureAudio = {
+  mouth: new Audio("./assets/audio/boca.mp3"),
+  blink: new Audio("./assets/audio/ojos.mp3"),
+  brow: new Audio("./assets/audio/cejas.mp3")
+};
+
+gestureAudio.mouth.preload = "auto";
+gestureAudio.blink.preload = "auto";
+gestureAudio.brow.preload = "auto";
+
+gestureAudio.mouth.volume = 0.78;
+gestureAudio.blink.volume = 0.72;
+gestureAudio.brow.volume = 0.76;
+
+gestureAudio.mouth.playbackRate = 1.08;
+gestureAudio.blink.playbackRate = 1.0;
+gestureAudio.brow.playbackRate = 1.0;
+
+function playGestureAudio(name) {
+  const audio = gestureAudio[name];
+  if (!audio) return false;
+
+  try {
+    audio.pause();
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const gestureState = {
   mouth: false,
   blink: false,
@@ -106,6 +138,9 @@ function noiseBurst({
 }
 
 function playMouthSound() {
+  if (playGestureAudio("mouth")) return;
+
+  // Fallback sintetizado si el archivo no está disponible.
   // Golpe mecánico + resonancia grave, como una máscara de metal abriéndose.
   noiseBurst({
     duration: 0.16,
@@ -129,6 +164,9 @@ function playMouthSound() {
 }
 
 function playBlinkSound() {
+  if (playGestureAudio("blink")) return;
+
+  // Fallback sintetizado si el archivo no está disponible.
   // Flash energético corto, más limpio que un beep simple.
   tone(760, 0.055, "sine", 0.022, 1280);
   tone(1520, 0.035, "sine", 0.013, 980, 0.018);
@@ -142,6 +180,9 @@ function playBlinkSound() {
 }
 
 function playBrowSound() {
+  if (playGestureAudio("brow")) return;
+
+  // Fallback sintetizado si el archivo no está disponible.
   // Whoosh ascendente + brillo ceremonial.
   noiseBurst({
     duration: 0.22,
@@ -493,6 +534,10 @@ async function startAR() {
   if (mindarThree) return;
 
   ensureAudio();
+
+  Object.values(gestureAudio).forEach((audio) => {
+    audio.load();
+  });
 
   $("intro").classList.add("hidden");
   $("ar-shell").classList.remove("hidden");
