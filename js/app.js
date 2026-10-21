@@ -444,21 +444,102 @@ async function startAR() {
 
   scene.add(faceMeshAR);
 
-  // Detalle ligero en la frente, también pegado a la cara.
+  // Kabuto simple para completar la silueta samurái.
   const foreheadAnchor = mindarThree.addAnchor(10);
-  const crestGeometry = new THREE.RingGeometry(0.045, 0.062, 32);
-  const crestMaterial = new THREE.MeshStandardMaterial({
+
+  const kabutoGroup = new THREE.Group();
+  kabutoGroup.position.set(0, 0.17, 0.015);
+
+  const blackMetal = new THREE.MeshStandardMaterial({
+    color: 0x151515,
+    metalness: 0.82,
+    roughness: 0.28,
+    emissive: 0x100505,
+    emissiveIntensity: 0.10
+  });
+
+  const redLacquer = new THREE.MeshStandardMaterial({
+    color: 0x5a1113,
+    metalness: 0.58,
+    roughness: 0.34,
+    emissive: 0x1c0506,
+    emissiveIntensity: 0.08
+  });
+
+  const goldMetal = new THREE.MeshStandardMaterial({
     color: 0xc8a35b,
-    metalness: 0.9,
+    metalness: 0.92,
     roughness: 0.18,
     emissive: 0x3a2608,
-    emissiveIntensity: 0.35,
+    emissiveIntensity: 0.32,
     side: THREE.DoubleSide
   });
 
-  const crest = new THREE.Mesh(crestGeometry, crestMaterial);
-  crest.position.set(0, 0.15, 0.12);
-  foreheadAnchor.group.add(crest);
+  // Cúpula principal.
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(0.23, 32, 24),
+    blackMetal
+  );
+  dome.scale.set(1.22, 0.76, 1.06);
+  dome.position.set(0, 0.11, -0.08);
+  kabutoGroup.add(dome);
+
+  // Visera frontal.
+  const brim = new THREE.Mesh(
+    new THREE.BoxGeometry(0.56, 0.055, 0.085),
+    redLacquer
+  );
+  brim.position.set(0, -0.015, 0.045);
+  kabutoGroup.add(brim);
+
+  // Protectores laterales.
+  const sideGeometry = new THREE.BoxGeometry(0.09, 0.22, 0.055);
+
+  const sideLeft = new THREE.Mesh(sideGeometry, redLacquer);
+  sideLeft.position.set(-0.245, -0.035, 0.01);
+  sideLeft.rotation.z = 0.24;
+  kabutoGroup.add(sideLeft);
+
+  const sideRight = new THREE.Mesh(sideGeometry, redLacquer);
+  sideRight.position.set(0.245, -0.035, 0.01);
+  sideRight.rotation.z = -0.24;
+  kabutoGroup.add(sideRight);
+
+  // Maedate frontal.
+  const crestRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.045, 0.062, 32),
+    goldMetal
+  );
+  crestRing.position.set(0, 0.105, 0.145);
+  kabutoGroup.add(crestRing);
+
+  const crestShape = new THREE.Shape();
+  crestShape.moveTo(0, 0.085);
+  crestShape.lineTo(-0.042, 0);
+  crestShape.lineTo(0.042, 0);
+  crestShape.closePath();
+
+  const crestTip = new THREE.Mesh(
+    new THREE.ShapeGeometry(crestShape),
+    goldMetal
+  );
+  crestTip.position.set(0, 0.155, 0.146);
+  kabutoGroup.add(crestTip);
+
+  // Cuernos sencillos para dar la silueta típica samurái.
+  const hornGeometry = new THREE.ConeGeometry(0.019, 0.17, 16);
+
+  const hornLeft = new THREE.Mesh(hornGeometry, goldMetal);
+  hornLeft.position.set(-0.115, 0.265, 0.035);
+  hornLeft.rotation.z = 0.48;
+  kabutoGroup.add(hornLeft);
+
+  const hornRight = new THREE.Mesh(hornGeometry, goldMetal);
+  hornRight.position.set(0.115, 0.265, 0.035);
+  hornRight.rotation.z = -0.48;
+  kabutoGroup.add(hornRight);
+
+  foreheadAnchor.group.add(kabutoGroup);
 
   await mindarThree.start();
 
@@ -481,12 +562,14 @@ async function startAR() {
       }
     }
 
-    crest.rotation.z += 0.006;
+    crestRing.rotation.z += 0.006;
 
     if (gestureState.brow) {
-      crest.scale.lerp(new THREE.Vector3(1.28, 1.28, 1.28), 0.18);
+      crestRing.scale.lerp(new THREE.Vector3(1.18, 1.18, 1.18), 0.18);
+      crestTip.scale.lerp(new THREE.Vector3(1.18, 1.18, 1.18), 0.18);
     } else {
-      crest.scale.lerp(new THREE.Vector3(1, 1, 1), 0.18);
+      crestRing.scale.lerp(new THREE.Vector3(1, 1, 1), 0.18);
+      crestTip.scale.lerp(new THREE.Vector3(1, 1, 1), 0.18);
     }
 
     renderer.render(scene, camera);
